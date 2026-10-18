@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+
+@theme {
+  --font-sans: "DM Sans", "Plus Jakarta Sans", sans-serif;
+  --font-display: "Outfit", "Plus Jakarta Sans", "Manrope", sans-serif;
+  --font-mono: "Space Mono", monospace;
+
+  --color-paper: #f5f0e8;
+  --color-cream: #fff8ef;
+  --color-ink: #29211e;
+  --color-muted: #7d716a;
+  --color-stone: #574d48;
+  --color-coral: #f27852;
+  --color-coral-light: #f69a75;
+  --color-coral-dark: #e56c4b;
+  --color-coral-deep: #b54f32;
+  --color-gold: #e6bd68;
+  --color-gold-dark: #d9a64a;
+  --color-sage: #9bc9a5;
+
+  --shadow-editor: 0 32px 75px rgba(0, 0, 0, 0.42);
+  --shadow-float: 0 20px 45px rgba(0, 0, 0, 0.38);
+  --shadow-coral: 0 7px 18px rgba(242, 120, 82, 0.28);
+  --shadow-card:
+    inset 0 2px 0 rgba(255, 255, 255, 0.8),
+    0 24px 70px rgba(69, 48, 38, 0.1);
+  --shadow-button: 0 10px 24px rgba(45, 35, 31, 0.18);
+  --shadow-button-hover: 0 14px 30px rgba(45, 35, 31, 0.24);
+}
+
+@layer base {
+  :root {
+    color: var(--color-ink);
+    background: var(--color-paper);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+  }
+}
+
+@utility animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+@utility animate-float-delayed {
+  animation: float 5s 1s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
