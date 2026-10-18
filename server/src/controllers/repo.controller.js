@@ -79,8 +79,8 @@ export async function getUserRepos(req, res) {
 
     const decryptedToken = decryptToken(user.encryptedGithubToken);
 
-    // If real GitHub token is present, query GitHub API
-    if (decryptedToken && !decryptedToken.startsWith("mock_")) {
+    // If real GitHub token is present, query GitHub API for user repos
+    if (decryptedToken && !decryptedToken.startsWith("mock_") && !decryptedToken.startsWith("pat_for_") && !decryptedToken.startsWith("public_token_")) {
       try {
         const response = await fetch("https://api.github.com/user/repos?sort=updated&per_page=100&affiliation=owner,collaborator", {
           headers: {
@@ -116,8 +116,46 @@ export async function getUserRepos(req, res) {
           }
         }
       } catch (githubErr) {
-        console.warn("GitHub API fetch warning (using demo repositories):", githubErr.message);
+        console.warn("GitHub OAuth API fetch warning:", githubErr.message);
       }
+    }
+
+    // Fetch user's real public & profile repositories from GitHub directly by username
+    try {
+      const publicResponse = await fetch(`https://api.github.com/users/${user.username}/repos?sort=updated&per_page=100`, {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "ReviseIQ-App",
+        },
+        signal: AbortSignal.timeout(7000),
+      });
+
+      if (publicResponse.ok) {
+        const data = await publicResponse.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const repos = data.map((r) => ({
+            id: r.id,
+            name: r.name,
+            full_name: r.full_name,
+            private: r.private,
+            description: r.description || "No description provided",
+            stargazers_count: r.stargazers_count || 0,
+            forks_count: r.forks_count || 0,
+            language: r.language || "Plain Text",
+            default_branch: r.default_branch || "main",
+            updated_at: r.updated_at,
+            html_url: r.html_url,
+          }));
+
+          return res.json({
+            success: true,
+            repos,
+            isMock: false,
+          });
+        }
+      }
+    } catch (pubErr) {
+      console.warn("GitHub public repos fetch failed:", pubErr.message);
     }
 
     // Fallback demo repositories for dev preview

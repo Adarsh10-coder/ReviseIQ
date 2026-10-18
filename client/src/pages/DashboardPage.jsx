@@ -30,7 +30,10 @@ export default function DashboardPage() {
             ← Switch Repository
           </Link>
           <button
-            onClick={logout}
+            onClick={() => {
+              localStorage.removeItem("reviseiq_github_handle");
+              logout();
+            }}
             type="button"
             className="text-xs text-[#9c8e86] hover:text-white px-2.5 py-1 rounded bg-white/5 border border-white/10 cursor-pointer"
           >

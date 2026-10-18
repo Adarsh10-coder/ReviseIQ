@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function GithubIcon() {
     return (
@@ -176,11 +176,58 @@ function CodeArtwork() {
 
 export default function LoginPage() {
     const [isConnecting, setIsConnecting] = useState(false);
+    const [showCustomModal, setShowCustomModal] = useState(false);
+    // Initially blank or loaded from localStorage (never hardcoded)
+    const [customUsername, setCustomUsername] = useState(() => localStorage.getItem("reviseiq_github_handle") || "");
+
+    const [errorMessage, setErrorMessage] = useState("");
+
+    // Reset connecting state whenever navigating back or mounting
+    useEffect(() => {
+        setIsConnecting(false);
+        const saved = localStorage.getItem("reviseiq_github_handle") || "";
+        setCustomUsername(saved);
+
+        const handlePageShow = () => {
+            setIsConnecting(false);
+        };
+        window.addEventListener("pageshow", handlePageShow);
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("error") === "github_connect_failed") {
+            setErrorMessage("GitHub user not found. Please check spelling.");
+            setShowCustomModal(true);
+        } else if (params.get("modal") === "open") {
+            setShowCustomModal(true);
+        }
+
+        return () => window.removeEventListener("pageshow", handlePageShow);
+    }, []);
 
     const handleGithubLogin = () => {
+        const savedHandle = (localStorage.getItem("reviseiq_github_handle") || customUsername).trim();
+        if (savedHandle) {
+            setIsConnecting(true);
+            window.location.href = `http://localhost:5000/auth/connect-real-user?username=${encodeURIComponent(savedHandle)}`;
+        } else {
+            setIsConnecting(false);
+            setShowCustomModal(true);
+        }
+    };
+
+    const handleCustomUserLogin = (e) => {
+        e.preventDefault();
+        const trimmed = customUsername.trim();
+        if (!trimmed) return;
+        localStorage.setItem("reviseiq_github_handle", trimmed);
         setIsConnecting(true);
-        // Direct redirect to backend GitHub OAuth
-        window.location.href = "http://localhost:5000/auth/github";
+        setShowCustomModal(false);
+        window.location.href = `http://localhost:5000/auth/connect-real-user?username=${encodeURIComponent(trimmed)}`;
+    };
+
+    const handleClearHandle = () => {
+        localStorage.removeItem("reviseiq_github_handle");
+        setCustomUsername("");
     };
 
     return (
@@ -286,10 +333,73 @@ export default function LoginPage() {
                         {!isConnecting && <ArrowIcon />}
                     </button>
 
-                    <div className="mt-3.5 flex items-center justify-center gap-1.5 text-[11px] text-muted">
-                        <CheckIcon className="size-3 text-sage" />
-                        <span>Instant OAuth 2.0 handshake</span>
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-muted">
+                        <span className="flex items-center gap-1.5">
+                            <CheckIcon className="size-3 text-sage" />
+                            <span>Instant OAuth 2.0 handshake</span>
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setShowCustomModal(true)}
+                            className="font-medium text-coral-deep hover:underline cursor-pointer"
+                        >
+                            {customUsername ? `Change handle (@${customUsername})` : "Set GitHub handle"}
+                        </button>
                     </div>
+
+                    {/* Custom GitHub Handle Modal */}
+                    {showCustomModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+                            <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#191412] p-6 text-white shadow-2xl">
+                                <div className="flex items-center justify-between mb-1">
+                                    <h3 className="font-display text-lg font-bold">Connect GitHub Account</h3>
+                                    {customUsername && (
+                                        <button
+                                            type="button"
+                                            onClick={handleClearHandle}
+                                            className="text-[10px] text-coral hover:underline cursor-pointer"
+                                        >
+                                            Clear saved
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-xs text-[#9a8c84] mb-4">
+                                    Enter your GitHub username. It will stay saved until you change it or sign out.
+                                </p>
+                                {errorMessage && (
+                                    <div className="mb-3.5 rounded-lg bg-rose-500/15 border border-rose-500/30 px-3 py-2 text-[11px] text-rose-300">
+                                        {errorMessage}
+                                    </div>
+                                )}
+                                <form onSubmit={handleCustomUserLogin}>
+                                    <input
+                                        type="text"
+                                        value={customUsername}
+                                        onChange={(e) => setCustomUsername(e.target.value)}
+                                        placeholder="GitHub username (e.g. Adarsh10-coder)"
+                                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-xs text-white placeholder-stone-500 focus:outline-none focus:border-coral mb-4"
+                                        autoFocus
+                                    />
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCustomModal(false)}
+                                            className="flex-1 rounded-lg border border-white/10 bg-white/5 py-2 text-xs font-semibold text-[#b5a59d] hover:bg-white/10 cursor-pointer"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={!customUsername.trim()}
+                                            className="flex-1 rounded-lg bg-coral py-2 text-xs font-bold text-[#201512] hover:bg-coral-light cursor-pointer shadow-coral disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Save & Connect
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
 
                     <p className="mt-5 mb-0 border-t border-[#ebdcd1] pt-3.5 text-center text-[10px] text-[#91837c]">
                         By continuing, you agree to ReviseIQ's{" "}

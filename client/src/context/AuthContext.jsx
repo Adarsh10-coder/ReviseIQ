@@ -39,10 +39,12 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       await api.post("/auth/logout");
-      setUser(null);
-      window.location.href = "/";
     } catch (err) {
       console.error("Logout failed:", err);
+    } finally {
+      localStorage.removeItem("reviseiq_github_handle");
+      setUser(null);
+      window.location.href = "/";
     }
   };
 

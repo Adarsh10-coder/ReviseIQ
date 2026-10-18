@@ -6,14 +6,20 @@ import { encryptToken } from "../utils/encryption.js";
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
 export function handleGithubAuth(req, res, next) {
-  if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
-    // If GitHub OAuth credentials are not provided yet in server/.env, redirect to dev-login bypass
-    return res.redirect("/auth/dev-login");
+  // If GitHub OAuth App credentials are configured, initiate real GitHub OAuth
+  if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+    return passport.authenticate("github", {
+      scope: ["user:email", "repo"],
+      session: false,
+    })(req, res, next);
   }
-  return passport.authenticate("github", {
-    scope: ["user:email", "repo"],
-    session: false,
-  })(req, res, next);
+
+  const username = req.query.username?.trim();
+  if (username) {
+    return res.redirect(`/auth/connect-real-user?username=${encodeURIComponent(username)}`);
+  }
+
+  return res.redirect(`${CLIENT_URL}/?modal=open`);
 }
 
 export function handleGithubCallback(req, res, next) {
@@ -24,7 +30,6 @@ export function handleGithubCallback(req, res, next) {
     }
 
     try {
-      // Issue custom JWT to React frontend via Secure, HTTP-only cookie
       const token = signToken({
         id: user._id,
         githubId: user.githubId,
@@ -35,10 +40,9 @@ export function handleGithubCallback(req, res, next) {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
-      // Redirect directly to the Repositories selection page
       return res.redirect(`${CLIENT_URL}/repos`);
     } catch (tokenErr) {
       console.error("JWT Issue Error:", tokenErr);
@@ -48,23 +52,52 @@ export function handleGithubCallback(req, res, next) {
 }
 
 /**
- * Developer Sandbox Login Bypass
- * Allows testing the full flow and RepoPage even before GitHub OAuth app credentials are created in .env
+ * Connects the real GitHub user without hardcoded default
  */
-export async function handleDevLogin(req, res) {
+export async function connectRealUser(req, res) {
   try {
-    const devGithubId = "99999999";
-    let user = await User.findOne({ githubId: devGithubId });
+    const targetUsername = req.query.username?.trim();
+
+    if (!targetUsername) {
+      return res.redirect(`${CLIENT_URL}/?modal=open`);
+    }
+
+    // Fetch real profile from GitHub
+    const githubRes = await fetch(`https://api.github.com/users/${targetUsername}`, {
+      headers: {
+        "User-Agent": "ReviseIQ-App",
+        Accept: "application/vnd.github+json",
+      },
+    });
+
+    if (!githubRes.ok) {
+      throw new Error(`Failed to fetch GitHub profile for ${targetUsername}`);
+    }
+
+    const profile = await githubRes.json();
+
+    const githubId = String(profile.id);
+    const username = profile.login;
+    const displayName = profile.name || profile.login;
+    const avatarUrl = profile.avatar_url;
+    const email = profile.email || `${username}@users.noreply.github.com`;
+
+    let user = await User.findOne({ githubId });
 
     if (!user) {
       user = await User.create({
-        githubId: devGithubId,
-        username: "developer-preview",
-        displayName: "ReviseIQ Engineer",
-        email: "engineer@reviseiq.dev",
-        avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=128&auto=format&fit=crop&q=80",
-        encryptedGithubToken: encryptToken("mock_github_access_token_for_preview"),
+        githubId,
+        username,
+        displayName,
+        email,
+        avatarUrl,
+        encryptedGithubToken: encryptToken(`pat_for_${username}`),
       });
+    } else {
+      user.username = username;
+      user.displayName = displayName;
+      user.avatarUrl = avatarUrl;
+      await user.save();
     }
 
     const token = signToken({
@@ -82,8 +115,90 @@ export async function handleDevLogin(req, res) {
 
     return res.redirect(`${CLIENT_URL}/repos`);
   } catch (error) {
-    console.error("Dev Login Error:", error);
-    return res.redirect(`${CLIENT_URL}/?error=dev_login_failed`);
+    console.error("Connect Real User Error:", error);
+    return res.redirect(`${CLIENT_URL}/?error=github_connect_failed`);
+  }
+}
+
+/**
+ * Connect with a Personal Access Token (for reading private repos)
+ */
+export async function connectWithToken(req, res) {
+  try {
+    const { token: githubToken, username: customUser } = req.body;
+
+    if (!githubToken && !customUser) {
+      return res.status(400).json({ success: false, message: "GitHub token or username required" });
+    }
+
+    let profileUrl = "https://api.github.com/user";
+    const headers = {
+      "User-Agent": "ReviseIQ-App",
+      Accept: "application/vnd.github+json",
+    };
+
+    if (githubToken) {
+      headers.Authorization = `Bearer ${githubToken}`;
+    } else {
+      profileUrl = `https://api.github.com/users/${customUser}`;
+    }
+
+    const githubRes = await fetch(profileUrl, { headers });
+    if (!githubRes.ok) {
+      return res.status(400).json({ success: false, message: "Invalid GitHub token or user not found" });
+    }
+
+    const profile = await githubRes.json();
+    const githubId = String(profile.id);
+    const username = profile.login;
+    const displayName = profile.name || profile.login;
+    const avatarUrl = profile.avatar_url;
+    const email = profile.email || `${username}@users.noreply.github.com`;
+
+    let user = await User.findOne({ githubId });
+    if (!user) {
+      user = await User.create({
+        githubId,
+        username,
+        displayName,
+        email,
+        avatarUrl,
+        encryptedGithubToken: encryptToken(githubToken || `public_token_${username}`),
+      });
+    } else {
+      user.username = username;
+      user.displayName = displayName;
+      user.avatarUrl = avatarUrl;
+      user.encryptedGithubToken = encryptToken(githubToken || `public_token_${username}`);
+      await user.save();
+    }
+
+    const token = signToken({
+      id: user._id,
+      githubId: user.githubId,
+      username: user.username,
+    });
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.json({
+      success: true,
+      user: {
+        id: user._id,
+        githubId: user.githubId,
+        username: user.username,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Connect with token error:", error);
+    return res.status(500).json({ success: false, message: "Authentication failed" });
   }
 }
 

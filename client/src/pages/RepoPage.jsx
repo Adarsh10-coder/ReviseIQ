@@ -133,7 +133,10 @@ ${repos
             </div>
           )}
           <button
-            onClick={logout}
+            onClick={() => {
+              localStorage.removeItem("reviseiq_github_handle");
+              logout();
+            }}
             type="button"
             className="text-xs font-medium text-[#9c8e86] hover:text-white transition-colors cursor-pointer px-2.5 py-1 rounded-md hover:bg-white/5"
           >
