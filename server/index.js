@@ -15,6 +15,7 @@ import { initSocket } from "./src/config/socket.js";
 // Routes
 import authRoutes from "./src/routes/auth.routes.js";
 import repoRoutes from "./src/routes/repo.routes.js";
+import aiRoutes from "./src/routes/ai.routes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -55,6 +56,7 @@ app.get("/health", (req, res) => {
 // Mount Routes
 app.use("/auth", authRoutes);
 app.use("/api/repos", repoRoutes);
+app.use("/api/ai", aiRoutes);
 
 // Fallback error handler
 app.use((err, req, res, next) => {

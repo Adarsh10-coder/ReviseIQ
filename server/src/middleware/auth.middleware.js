@@ -42,3 +42,31 @@ export async function requireAuth(req, res, next) {
     });
   }
 }
+
+/**
+ * Optional auth middleware: attaches user to req if a valid token is present,
+ * but allows the request to continue even without authentication.
+ * Useful for endpoints that work with or without a GitHub OAuth token.
+ */
+export async function optionalAuth(req, res, next) {
+  try {
+    let token = req.cookies?.token;
+
+    if (!token && req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (token) {
+      const decoded = verifyToken(token);
+      if (decoded && decoded.id) {
+        const user = await User.findById(decoded.id);
+        if (user) {
+          req.user = user;
+        }
+      }
+    }
+  } catch {
+    // Silently continue without auth
+  }
+  next();
+}

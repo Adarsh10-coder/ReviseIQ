@@ -34,6 +34,7 @@ export default function RepoPage() {
   const [repos, setRepos] = useState([]);
   const [selectedRepo, setSelectedRepo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState("cards"); // "cards" | "markdown"
@@ -85,6 +86,9 @@ ${repos
 
     try {
       setSubmitting(true);
+      try {
+        localStorage.setItem("reviseiq_selected_repo", JSON.stringify(selectedRepo));
+      } catch {}
       await api.post("/api/repos/select", {
         repoId: selectedRepo.id,
         fullName: selectedRepo.full_name,

@@ -4,7 +4,13 @@ import { useState } from "react";
 export default function OnboardingPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const repo = location.state?.repo || { full_name: "ReviseIQ/core-engine", name: "core-engine" };
+  const repo = location.state?.repo || (() => {
+    try {
+      const saved = localStorage.getItem("reviseiq_selected_repo");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { full_name: "ReviseIQ/core-engine", name: "core-engine" };
+  })();
 
   const [activeAgents, setActiveAgents] = useState(["security", "performance", "clarity"]);
   const [isConfiguring, setIsConfiguring] = useState(false);
@@ -18,8 +24,14 @@ export default function OnboardingPage() {
   const handleLaunch = () => {
     setIsConfiguring(true);
     setTimeout(() => {
-      navigate("/dashboard", { state: { repo, activeAgents } });
-    }, 800);
+      navigate("/dashboard", {
+        state: {
+          repo,
+          activeAgents,
+          autoReview: true,
+        },
+      });
+    }, 600);
   };
 
   return (
@@ -87,9 +99,16 @@ export default function OnboardingPage() {
           type="button"
           onClick={handleLaunch}
           disabled={isConfiguring}
-          className="w-full h-12 rounded-xl bg-coral hover:bg-coral-light active:bg-coral-dark text-[#201512] font-extrabold text-sm shadow-coral transition-all cursor-pointer flex items-center justify-center gap-2"
+          className="w-full h-12 rounded-xl bg-coral hover:bg-coral-light active:bg-coral-dark text-[#201512] font-extrabold text-sm shadow-coral transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75"
         >
-          {isConfiguring ? "Deploying Agents..." : "Launch ReviseIQ Dashboard →"}
+          {isConfiguring ? (
+            <>
+              <span className="size-4 rounded-full border-2 border-[#201512]/30 border-t-[#201512] animate-spin" />
+              <span>Deploying Agents & Initializing Audit...</span>
+            </>
+          ) : (
+            "Launch ReviseIQ Dashboard →"
+          )}
         </button>
       </div>
     </div>
