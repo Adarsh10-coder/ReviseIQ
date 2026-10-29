@@ -1,5 +1,4 @@
 import { decryptToken } from "../utils/encryption.js";
-import User from "../models/User.js";
 
 const GITHUB_API = "https://api.github.com";
 const GITHUB_UA = "ReviseIQ-App";
@@ -13,7 +12,7 @@ function githubHeaders(token) {
     Accept: "application/vnd.github+json",
     "User-Agent": GITHUB_UA,
   };
-  if (token && !token.startsWith("mock_") && !token.startsWith("pat_for_") && !token.startsWith("public_token_")) {
+  if (token && !token.startsWith("pat_for_")) {
     headers.Authorization = `Bearer ${token}`;
   }
   return headers;

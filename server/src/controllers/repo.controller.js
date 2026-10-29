@@ -12,77 +12,6 @@ function getHashCode(str) {
 }
 
 /**
- * Scrapes user's real repositories directly from public GitHub profile HTML.
- * This completely bypasses GitHub's unauthenticated REST API rate limit (403).
- */
-export async function fetchUserReposFromGithubHTML(username) {
-    try {
-        const response = await fetch(`https://github.com/${encodeURIComponent(username)}?tab=repositories`, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Cache-Control": "no-cache",
-            },
-            signal: AbortSignal.timeout(8000),
-        });
-
-        if (!response.ok) return [];
-
-        const html = await response.text();
-        const blocks = html.split('<li class="col-12 d-flex');
-        const repos = [];
-
-        for (let i = 1; i < blocks.length; i++) {
-            const block = blocks[i];
-            const nameMatch = block.match(new RegExp(`href="/${username}/([^/"]+)"\\s+itemprop="name codeRepository"`, "i"));
-            if (!nameMatch) continue;
-            const repoName = nameMatch[1].trim();
-
-            const descMatch = block.match(/itemprop="description">([\s\S]*?)<\/p>/);
-            const description = descMatch ? descMatch[1].replace(/<[^>]*>/g, "").trim() : "Public GitHub repository";
-
-            const langMatch = block.match(/itemprop="programmingLanguage">([^<]+)<\/span>/);
-            const language = langMatch ? langMatch[1].trim() : "JavaScript";
-
-            const isPrivate = block.includes("Label--secondary") && block.toLowerCase().includes("private");
-
-            const starsMatch = block.match(/href="[^"]*\/stargazers"[^>]*>([\s\S]*?)<\/a>/);
-            let stargazers_count = 0;
-            if (starsMatch) {
-                const countStr = starsMatch[1].replace(/<[^>]*>/g, "").trim().replace(/,/g, "");
-                stargazers_count = parseInt(countStr, 10) || 0;
-            }
-
-            const forksMatch = block.match(/href="[^"]*\/forks"[^>]*>([\s\S]*?)<\/a>/);
-            let forks_count = 0;
-            if (forksMatch) {
-                const forkStr = forksMatch[1].replace(/<[^>]*>/g, "").trim().replace(/,/g, "");
-                forks_count = parseInt(forkStr, 10) || 0;
-            }
-
-            repos.push({
-                id: Math.abs(getHashCode(`${username}/${repoName}`)),
-                name: repoName,
-                full_name: `${username}/${repoName}`,
-                private: isPrivate,
-                description,
-                stargazers_count,
-                forks_count,
-                language,
-                default_branch: "main",
-                updated_at: new Date().toISOString(),
-                html_url: `https://github.com/${username}/${repoName}`,
-            });
-        }
-
-        return repos;
-    } catch (err) {
-        console.warn(`Scraping GitHub repositories for ${username} warning:`, err.message);
-        return [];
-    }
-}
-
-/**
  * Generates personalized repositories for a user when their account has no public repositories.
  * Guaranteed to NEVER show generic acme-corp or another user's repositories.
  */
@@ -140,13 +69,8 @@ export async function getUserRepos(req, res) {
         const username = user.username;
         const decryptedToken = decryptToken(user.encryptedGithubToken);
 
-        // 1. If a real GitHub token is present (OAuth or PAT), query GitHub API with higher rate limit (5,000 req/hr)
-        if (
-            decryptedToken &&
-            !decryptedToken.startsWith("mock_") &&
-            !decryptedToken.startsWith("pat_for_") &&
-            !decryptedToken.startsWith("public_token_")
-        ) {
+        // 1. If a real GitHub OAuth token is present, query GitHub API with higher rate limit (5,000 req/hr)
+        if (decryptedToken && !decryptedToken.startsWith("pat_for_")) {
             try {
                 const response = await fetch("https://api.github.com/user/repos?sort=updated&per_page=100&affiliation=owner,collaborator", {
                     headers: {
@@ -226,18 +150,7 @@ export async function getUserRepos(req, res) {
             console.warn("GitHub public repos API warning:", pubErr.message);
         }
 
-        // 3. Fallback to direct HTML scraper (bypasses GitHub unauthenticated REST API 403 rate limit)
-        const scrapedRepos = await fetchUserReposFromGithubHTML(username);
-        if (scrapedRepos && scrapedRepos.length > 0) {
-            return res.json({
-                success: true,
-                repos: scrapedRepos,
-                isMock: false,
-                source: "github_profile_sync",
-            });
-        }
-
-        // 4. Personalized fallback for users with 0 public repositories (NEVER serves random acme-corp)
+        // 3. Personalized fallback for users with 0 public repositories (or if GitHub API is rate-limited)
         const personalizedRepos = generatePersonalizedRepos(username);
         return res.json({
             success: true,

@@ -1,4 +1,3 @@
-import http from "http";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -10,7 +9,6 @@ dotenv.config();
 
 import { connectDB } from "./src/config/db.js";
 import { configurePassport } from "./src/config/passport.js";
-import { initSocket } from "./src/config/socket.js";
 
 // Routes
 import authRoutes from "./src/routes/auth.routes.js";
@@ -18,7 +16,6 @@ import repoRoutes from "./src/routes/repo.routes.js";
 import aiRoutes from "./src/routes/ai.routes.js";
 
 const app = express();
-const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
@@ -29,9 +26,6 @@ connectDB();
 // Initialize Passport GitHub OAuth Strategy
 configurePassport();
 
-// Initialize Socket.io
-initSocket(server, CLIENT_URL);
-
 // Middleware
 app.use(
   cors({
@@ -40,7 +34,6 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
@@ -68,7 +61,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`🚀 ReviseIQ Server running on http://localhost:${PORT}`);
   console.log(`📡 Client URL: ${CLIENT_URL}`);
 });

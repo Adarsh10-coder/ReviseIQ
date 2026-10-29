@@ -4,19 +4,6 @@ import User from "../models/User.js";
 import { encryptToken } from "../utils/encryption.js";
 
 export function configurePassport() {
-  passport.serializeUser((user, done) => {
-    done(null, user._id);
-  });
-
-  passport.deserializeUser(async (id, done) => {
-    try {
-      const user = await User.findById(id);
-      done(null, user);
-    } catch (err) {
-      done(err, null);
-    }
-  });
-
   const clientID = process.env.GITHUB_CLIENT_ID;
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
   const callbackURL = process.env.GITHUB_CALLBACK_URL || "http://localhost:5000/auth/github/callback";

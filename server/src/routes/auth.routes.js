@@ -3,7 +3,6 @@ import {
   handleGithubAuth,
   handleGithubCallback,
   connectRealUser,
-  connectWithToken,
   getMe,
   logout,
 } from "../controllers/auth.controller.js";
@@ -19,9 +18,6 @@ router.get("/github/callback", handleGithubCallback);
 
 // Connect real GitHub user
 router.get("/connect-real-user", connectRealUser);
-
-// Connect with Token or custom username
-router.post("/connect-token", connectWithToken);
 
 // Current authenticated user
 router.get("/me", requireAuth, getMe);
