@@ -76,9 +76,11 @@ export async function getDashboardData(req, res, next) {
 
     // --- Parse Commits → Live Activity Feed ---
     let activityFeed = [];
+    let commits = [];
     if (commitsRes.status === "fulfilled" && commitsRes.value.ok) {
-      const commits = await commitsRes.value.json();
-      if (Array.isArray(commits)) {
+      const data = await commitsRes.value.json();
+      if (Array.isArray(data)) {
+        commits = data;
         activityFeed = commits.slice(0, 8).map((c, i) => ({
           id: c.sha?.slice(0, 7) || `commit-${i}`,
           type: "commit",
@@ -146,14 +148,56 @@ export async function getDashboardData(req, res, next) {
 
     // --- Find a real source file to review ---
     let realSourceFile = null;
-    if (treeRes.status === "fulfilled" && treeRes.value.ok) {
+    const codeExtensions = /\.(js|ts|jsx|tsx|py|go|rs|java|rb|php|c|cpp|cs)$/i;
+    const skipPatterns = /(node_modules|dist|build|\.config\.|\.lock|\.min\.|package-lock|yarn\.lock|\.d\.ts)/i;
+    const langMap = {
+      js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
+      py: "python", go: "go", rs: "rust", java: "java", rb: "ruby",
+      php: "php", c: "c", cpp: "cpp", cs: "csharp",
+    };
+
+    // Priority 1: Check files modified in the user's latest commit
+    if (commits.length > 0 && commits[0].sha) {
+      try {
+        const detailRes = await fetch(`${GITHUB_API}/repos/${owner}/${repoName}/commits/${commits[0].sha}`, fetchOpts);
+        if (detailRes.ok) {
+          const detail = await detailRes.json();
+          const recentFile = detail.files?.find(
+            (f) => codeExtensions.test(f.filename) && !skipPatterns.test(f.filename) && f.status !== "removed"
+          );
+
+          if (recentFile) {
+            const fileRes = await fetch(
+              `${GITHUB_API}/repos/${owner}/${repoName}/contents/${recentFile.filename}?ref=${commits[0].sha}`,
+              {
+                headers: { ...headers, Accept: "application/vnd.github.raw+json" },
+                signal: AbortSignal.timeout(6000),
+              }
+            );
+            if (fileRes.ok) {
+              const content = await fileRes.text();
+              const ext = recentFile.filename.split(".").pop().toLowerCase();
+              realSourceFile = {
+                path: recentFile.filename,
+                language: langMap[ext] || ext,
+                content: content.slice(0, 8000), // Cap at 8KB for API safety
+                size: recentFile.changes || content.length,
+                isLatestCommit: true,
+                commitSha: commits[0].sha.slice(0, 7),
+                commitMessage: commits[0].commit?.message?.split("\n")[0] || "Recent commit",
+              };
+            }
+          }
+        }
+      } catch (commitFileErr) {
+        console.warn("Failed to fetch file from latest commit:", commitFileErr.message);
+      }
+    }
+
+    // Priority 2: Fallback to scanning repository tree at HEAD
+    if (!realSourceFile && treeRes.status === "fulfilled" && treeRes.value.ok) {
       const treeData = await treeRes.value.json();
       if (treeData.tree && Array.isArray(treeData.tree)) {
-        // Prefer reviewable source files: .js, .ts, .jsx, .tsx, .py, .go, .rs, .java
-        const codeExtensions = /\.(js|ts|jsx|tsx|py|go|rs|java|rb|php|c|cpp|cs)$/i;
-        // Skip node_modules, dist, build, lock files, config files
-        const skipPatterns = /(node_modules|dist|build|\.config\.|\.lock|\.min\.|package-lock|yarn\.lock|\.d\.ts)/i;
-
         const codeFiles = treeData.tree.filter(
           (f) =>
             f.type === "blob" &&
@@ -190,19 +234,14 @@ export async function getDashboardData(req, res, next) {
             );
             if (fileRes.ok) {
               const content = await fileRes.text();
-              // Detect language from extension
               const ext = chosen.path.split(".").pop().toLowerCase();
-              const langMap = {
-                js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
-                py: "python", go: "go", rs: "rust", java: "java", rb: "ruby",
-                php: "php", c: "c", cpp: "cpp", cs: "csharp",
-              };
 
               realSourceFile = {
                 path: chosen.path,
                 language: langMap[ext] || ext,
                 content: content.slice(0, 8000), // Cap at 8KB for API safety
                 size: chosen.size,
+                isLatestCommit: false,
               };
             }
           } catch (fileErr) {
