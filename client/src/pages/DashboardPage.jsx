@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import api from "../lib/api.js";
+import VSCodeBlock from "../components/VSCodeBlock.jsx";
 import {
   Loader2,
   Sparkles,
@@ -14,8 +15,6 @@ import {
   Code2,
   ChevronDown,
   ChevronUp,
-  Copy,
-  Check,
   RefreshCw,
 } from "lucide-react";
 
@@ -57,15 +56,14 @@ export default function DashboardPage() {
 
   const activeAgents = location.state?.activeAgents || ["security", "performance", "clarity"];
 
-  const [codeToReview, setCodeToReview] = useState("");
-  const [sourceFilePath, setSourceFilePath] = useState("snippet");
+  const [codeToReview, setCodeToReview] = useState(FALLBACK_SNIPPET);
+  const [sourceFilePath, setSourceFilePath] = useState("processUserPayment.js");
   const [sourceFileLanguage, setSourceFileLanguage] = useState("javascript");
   const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [error, setError] = useState(null);
   const [reviewResult, setReviewResult] = useState(null);
-  const [copied, setCopied] = useState(false);
   const [feedItems, setFeedItems] = useState([]);
   const [repoDescription, setRepoDescription] = useState("");
   const originalSourceRef = useRef(FALLBACK_SNIPPET);
@@ -203,12 +201,6 @@ export default function DashboardPage() {
     }
   }, [location.state?.autoReview, loadingDashboard, codeToReview]);
 
-  const handleCopyRefactor = (text) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div className="min-h-screen bg-[#110f0e] text-[#f5efe9] flex flex-col font-sans">
@@ -277,32 +269,30 @@ export default function DashboardPage() {
             className="text-xs text-[#9c8e86] hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
           >
             <Code2 className="size-3.5" />
-            <span>{showCodeEditor ? "Hide Code Snippet" : "Customize / View Snippet to Evaluate"}</span>
+            <span>{showCodeEditor ? "Hide Code Snippet" : "View Snippet to Evaluate"}</span>
             {showCodeEditor ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
           </button>
         </div>
 
-        {/* Optional Expandable Code Editor */}
+        {/* Expandable VS Code Code Window */}
         {showCodeEditor && (
-          <div className="rounded-2xl border border-white/10 bg-[#161211] p-5 shadow-2xl transition-all">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-mono text-muted">
-                {sourceFilePath !== "snippet" ? `Source: ${sourceFilePath}` : "Source code for Gemini review:"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setCodeToReview(originalSourceRef.current || FALLBACK_SNIPPET)}
-                className="text-[11px] text-coral hover:underline cursor-pointer"
-              >
-                Reset to original {sourceFilePath !== "snippet" ? "file" : "snippet"}
-              </button>
-            </div>
-            <textarea
-              rows={8}
-              value={codeToReview}
-              onChange={(e) => setCodeToReview(e.target.value)}
-              className="w-full font-mono text-xs bg-[#100d0c] text-white p-3.5 rounded-xl border border-white/10 focus:border-coral focus:outline-none focus:ring-1 focus:ring-coral/40"
-              placeholder="Paste code snippet here..."
+          <div className="w-full">
+            <VSCodeBlock
+              code={codeToReview}
+              fileName={
+                sourceFilePath !== "snippet"
+                  ? sourceFilePath.split("/").pop()
+                  : "processUserPayment.js"
+              }
+              language={sourceFileLanguage || "javascript"}
+              badge="Evaluation Target"
+              badgeColor="text-coral bg-coral/10 border-coral/20"
+              editable={true}
+              onChange={(newCode) => setCodeToReview(newCode)}
+              onReset={() => setCodeToReview(originalSourceRef.current || FALLBACK_SNIPPET)}
+              resetLabel={`Reset to original ${sourceFilePath !== "snippet" ? "file" : "snippet"}`}
+              defaultMode="preview"
+              maxHeight="max-h-[380px]"
             />
           </div>
         )}
@@ -460,34 +450,27 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Suggested Refactoring Snippet */}
+            {/* Suggested Refactoring Snippet (VS Code Syntax Highlighted) */}
             {reviewResult.suggestedRefactor && (
-              <div className="rounded-xl border border-white/8 bg-[#100d0c] p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-emerald-400 font-semibold">
-                    Recommended Production-Ready Refactor:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyRefactor(reviewResult.suggestedRefactor)}
-                    className="text-xs text-[#9c8e86] hover:text-white flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/5 border border-white/10 cursor-pointer transition-colors"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="size-3 text-emerald-400" />
-                        <span className="text-emerald-400">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="size-3" />
-                        <span>Copy Fix</span>
-                      </>
-                    )}
-                  </button>
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center gap-2 text-xs font-mono font-semibold text-emerald-400">
+                  <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Recommended Production-Ready Refactor:</span>
                 </div>
-                <pre className="font-mono text-xs text-[#f5efe9] p-3 rounded-lg bg-black/40 overflow-x-auto border border-white/5">
-                  <code>{reviewResult.suggestedRefactor}</code>
-                </pre>
+                <VSCodeBlock
+                  code={reviewResult.suggestedRefactor}
+                  fileName={
+                    sourceFilePath !== "snippet"
+                      ? `refactor-${sourceFilePath.split("/").pop()}`
+                      : "refactor.js"
+                  }
+                  language={sourceFileLanguage || "javascript"}
+                  badge="Production Refactor"
+                  badgeColor="text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
+                  editable={false}
+                  showCopy={true}
+                  maxHeight="max-h-[500px]"
+                />
               </div>
             )}
           </div>
