@@ -17,6 +17,9 @@ import aiRoutes from "./src/routes/ai.routes.js";
 
 const app = express();
 
+// Trust reverse proxy (essential for Render / load balancers to detect HTTPS and set secure cookies)
+app.set("trust proxy", 1);
+
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
@@ -27,9 +30,22 @@ connectDB();
 configurePassport();
 
 // Middleware
+const allowedOrigins = [
+  CLIENT_URL,
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://reviseiq.onrender.com",
+];
+
 app.use(
   cors({
-    origin: [CLIENT_URL, "http://localhost:5173", "http://localhost:5174"],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+      if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".vercel.app") || origin.endsWith(".onrender.com")) {
+        return callback(null, true);
+      }
+      return callback(null, true); // Permissive for preview deployments
+    },
     credentials: true,
   })
 );

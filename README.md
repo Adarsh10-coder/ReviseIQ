@@ -506,7 +506,7 @@ JWT_EXPIRES_IN=7d
 # GitHub OAuth Credentials (Optional for local sandbox demo)
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
-GITHUB_CALLBACK_URL=http://localhost:5000/auth/github/callback
+GITHUB_CALLBACK_URL=https://reviseiq.onrender.com/auth/github/callback
 
 # AES-256 Token Encryption Key (Must be exactly 64 hexadecimal characters / 32 bytes)
 ENCRYPTION_KEY=caf6ba85faf0fc27e528444fe350147a9cf2340741884a76c96f6f4bacf68d4c
@@ -533,7 +533,7 @@ GEMINI_MODEL=gemini-3.1-pro-preview
 | `GEMINI_MODEL` | `server/.env` | No | Model name (e.g., `gemini-3.1-pro-preview`, `gemini-3-flash-preview`). |
 | `GITHUB_CLIENT_ID`| `server/.env` | No | OAuth App Client ID from GitHub Developer settings. |
 | `GITHUB_CLIENT_SECRET`| `server/.env`| No | OAuth App Client Secret from GitHub Developer settings. |
-| `GITHUB_CALLBACK_URL` | `server/.env`| No | OAuth Redirect URI (e.g. `http://localhost:5000/auth/github/callback`). |
+| `GITHUB_CALLBACK_URL` | `server/.env`| No | OAuth Redirect URI (e.g. `https://reviseiq.onrender.com/auth/github/callback`). |
 
 ---
 
@@ -665,8 +665,8 @@ npm run build
 1. 🚀 Deploy the `server/` directory as a Node.js web service.
 2. ⚙️ Ensure environment variables from `server/.env` are populated in your hosting dashboard.
 3. 🌐 Update `CLIENT_URL` to match your deployed frontend domain (e.g., `https://reviseiq.vercel.app`).
-4. 🐙 Update `GITHUB_CALLBACK_URL` in both GitHub Developer Settings and the backend environment variables to match your production domain:
-   `https://api.yourdomain.com/auth/github/callback`.
+4. 🐙 Update `GITHUB_CALLBACK_URL` in both GitHub Developer Settings and the backend environment variables to match your Render domain:
+   `https://reviseiq.onrender.com/auth/github/callback`.
 
 <a id="database-mongodb-atlas"></a>
 ### 🗄️ Database (MongoDB Atlas)

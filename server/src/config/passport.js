@@ -6,7 +6,7 @@ import { encryptToken } from "../utils/encryption.js";
 export function configurePassport() {
   const clientID = process.env.GITHUB_CLIENT_ID;
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
-  const callbackURL = process.env.GITHUB_CALLBACK_URL || "http://localhost:5000/auth/github/callback";
+  const callbackURL = process.env.GITHUB_CALLBACK_URL || "https://reviseiq.onrender.com/auth/github/callback";
 
   if (!clientID || !clientSecret) {
     console.warn("⚠️ GitHub OAuth credentials not configured in server/.env (GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET)");

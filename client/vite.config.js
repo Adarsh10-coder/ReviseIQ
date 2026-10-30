@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const target = process.env.VITE_API_URL || 'https://reviseiq.onrender.com';
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -8,21 +10,25 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target,
         changeOrigin: true,
+        secure: false,
       },
       '/auth': {
-        target: 'http://localhost:5000',
+        target,
         changeOrigin: true,
+        secure: false,
       },
       '/webhooks': {
-        target: 'http://localhost:5000',
+        target,
         changeOrigin: true,
+        secure: false,
       },
       '/socket.io': {
-        target: 'http://localhost:5000',
+        target,
         changeOrigin: true,
         ws: true,
+        secure: false,
       },
     },
   },

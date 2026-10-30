@@ -36,14 +36,15 @@ export function handleGithubCallback(req, res, next) {
                 username: user.username,
             });
 
+            const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
             res.cookie("token", token, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "lax",
+                secure: isProd,
+                sameSite: isProd ? "none" : "lax",
                 maxAge: 7 * 24 * 60 * 60 * 1000,
             });
 
-            return res.redirect(`${CLIENT_URL}/repos`);
+            return res.redirect(`${CLIENT_URL}/repos?token=${token}`);
         } catch (tokenErr) {
             console.error("JWT Issue Error:", tokenErr);
             return res.redirect(`${CLIENT_URL}/?error=token_error`);
@@ -127,14 +128,15 @@ export async function connectRealUser(req, res) {
             username: user.username,
         });
 
+        const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
         res.cookie("token", token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
+            secure: isProd,
+            sameSite: isProd ? "none" : "lax",
             maxAge: 7 * 24 * 60 * 60 * 1000,
         });
 
-        return res.redirect(`${CLIENT_URL}/repos`);
+        return res.redirect(`${CLIENT_URL}/repos?token=${token}`);
     } catch (error) {
         console.error("Connect Real User Error:", error);
         return res.redirect(`${CLIENT_URL}/?error=github_connect_failed`);
@@ -162,10 +164,11 @@ export async function getMe(req, res) {
 }
 
 export function logout(req, res) {
+    const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
     res.clearCookie("token", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        secure: isProd,
+        sameSite: isProd ? "none" : "lax",
     });
 
     return res.json({

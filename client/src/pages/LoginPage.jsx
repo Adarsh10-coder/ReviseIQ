@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { BACKEND_URL } from "../lib/api.js";
 
 function GithubIcon() {
     return (
@@ -208,7 +209,7 @@ export default function LoginPage() {
         const savedHandle = (localStorage.getItem("reviseiq_github_handle") || customUsername).trim();
         if (savedHandle) {
             setIsConnecting(true);
-            window.location.href = `http://localhost:5000/auth/connect-real-user?username=${encodeURIComponent(savedHandle)}`;
+            window.location.href = `${BACKEND_URL}/auth/connect-real-user?username=${encodeURIComponent(savedHandle)}`;
         } else {
             setIsConnecting(false);
             setShowCustomModal(true);
@@ -222,7 +223,7 @@ export default function LoginPage() {
         localStorage.setItem("reviseiq_github_handle", trimmed);
         setIsConnecting(true);
         setShowCustomModal(false);
-        window.location.href = `http://localhost:5000/auth/connect-real-user?username=${encodeURIComponent(trimmed)}`;
+        window.location.href = `${BACKEND_URL}/auth/connect-real-user?username=${encodeURIComponent(trimmed)}`;
     };
 
     const handleClearHandle = () => {
